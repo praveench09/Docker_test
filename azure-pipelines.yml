@@ -1,0 +1,56 @@
+trigger:
+- main
+
+resources:
+- repo: self
+
+variables:
+  dockerRegistryServiceConnection: '79a76fd3-051c-473e-8f14-f2f879c99c87'
+  imageRepository: 'deployaks'
+  containerRegistry: 'acrfromterraform.azurecr.io'
+  dockerfilePath: '$(Build.SourcesDirectory)/Dockerfile'
+  tag: '$(Build.BuildId)'
+  vmImageName: 'ubuntu-latest'
+
+stages:
+- stage: Build
+  displayName: Build and push stage
+  jobs:
+  - job: Build
+    displayName: Build
+    pool:
+      vmImage: $(vmImageName)
+    steps:
+    - task: Docker@2
+      displayName: Build and push an image to container registry
+      inputs:
+        command: buildAndPush
+        repository: $(imageRepository)
+        dockerfile: $(dockerfilePath)
+        containerRegistry: $(dockerRegistryServiceConnection)
+        tags: |
+          $(tag)
+
+- stage: DeployToTest
+  jobs:
+  - job: DeployToAKS
+    displayName: 'Deploy to Test AKS'
+    pool:
+      vmImage: $(vmImageName)
+    variables:
+      - group: TestEnvironmentVariables
+    steps:
+    - script: echo 'Deploying to Test namespace...'
+      displayName: 'Deployment to Test'
+
+- stage: DeployToProd
+  jobs:
+  - job: DeployToAKS
+    displayName: 'Deploy to Prod AKS'
+    pool:
+      vmImage: $(vmImageName)
+    variables:
+      - group: ProdEnvironmentVariables
+    steps:
+    - script: echo 'Deploying to Prod namespace...'
+      displayName: 'Deployment to Prod'
